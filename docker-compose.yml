@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # SQL Server Publisher Instance
+  sqlserver-publisher:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-publisher
+    hostname: sqlserver-publisher
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=Developer
+      - MSSQL_AGENT_ENABLED=true
+    ports:
+      - "1440:1433"
+    volumes:
+      - publisher_data:/var/opt/mssql
+      - ./sql/init:/docker-entrypoint-initdb.d
+      - ./sql/publisher:/opt/sql/publisher
+      - ./sql/shared:/opt/sql/shared
+    networks:
+      - replication-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -Q 'SELECT 1' -C || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+
+  # SQL Server Subscriber Instance  
+  sqlserver-subscriber:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-subscriber
+    hostname: sqlserver-subscriber
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=Developer
+      - MSSQL_AGENT_ENABLED=true
+    ports:
+      - "1434:1433"
+    volumes:
+      - subscriber_data:/var/opt/mssql
+      - ./sql/init:/docker-entrypoint-initdb.d
+      - ./sql/subscriber:/opt/sql/subscriber
+      - ./sql/shared:/opt/sql/shared
+    networks:
+      - replication-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver-publisher:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -Q 'SELECT 1' -C || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+
+  # SQL Server Management Studio (Optional - for GUI management)
+  adminer:
+    image: adminer:latest
+    container_name: sql-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - replication-network
+    depends_on:
+      - sqlserver-publisher
+      - sqlserver-subscriber
+    restart: unless-stopped
+
+volumes:
+  publisher_data:
+    driver: local
+  subscriber_data:
+    driver: local
+
+networks:
+  replication-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

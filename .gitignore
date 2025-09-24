@@ -1,0 +1,38 @@
+# Environment files
+.env.local
+.env.production
+
+# SQL Server data files
+*.mdf
+*.ldf
+*.ndf
+
+# Docker volumes
+publisher_data/
+subscriber_data/
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.bak
+*.trn
+
+# Temporary files
+temp/
+tmp/
+
+# IDE files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
